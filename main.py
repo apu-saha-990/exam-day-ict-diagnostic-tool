@@ -29,11 +29,12 @@ import sys
 
 from modules.report import FullReport
 from modules import audio as audio_module
+from modules import webcam as webcam_module
 from modules.powershell_bridge import is_windows
 
 CATEGORY_MODULES = {
     "audio": audio_module,
-    # "webcam": webcam_module,          # coming next
+    "webcam": webcam_module,
     # "network": network_module,
     # "display": display_module,
     # "input": input_module,
