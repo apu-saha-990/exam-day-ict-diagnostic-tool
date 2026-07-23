@@ -1,0 +1,12 @@
+# Generated diagnostic reports (contain real device/hardware names from whoever runs it)
+exam_ict_report_*.txt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS noise
+.DS_Store
+Thumbs.db
