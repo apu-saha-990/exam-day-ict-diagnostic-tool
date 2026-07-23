@@ -33,6 +33,7 @@ from modules import webcam as webcam_module
 from modules import network as network_module
 from modules import display as display_module
 from modules import input_devices as input_module
+from modules import driver_health as driver_health_module
 from modules.powershell_bridge import is_windows
 
 CATEGORY_MODULES = {
@@ -41,7 +42,7 @@ CATEGORY_MODULES = {
     "network": network_module,
     "display": display_module,
     "input": input_module,
-    # "drivers": drivers_module,
+    "drivers": driver_health_module,
     # "system_logs": system_logs_module,
     # "power": power_module,
 }
