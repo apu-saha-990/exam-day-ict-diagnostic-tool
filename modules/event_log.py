@@ -204,21 +204,23 @@ def run(simulate: bool = False) -> CategoryReport:
             report.add(CheckResult(
                 name="Recent system errors",
                 status=Status.PASS,
-                summary=f"{error_count} error-level event(s) logged in the last 24 hours, "
-                         "but the identifiable sources are routine Windows background "
-                         "noise (DCOM permission chatter / device-pairing service), not "
-                         "signs of an actual hardware or driver problem.",
-                detail=f"Sources: {sources_text}",
+                summary=f"{error_count} error(s) were logged in the last 24 hours, but "
+                         "the identifiable sources are routine Windows background noise "
+                         "(DCOM permission chatter / device-pairing service), not signs "
+                         "of an actual hardware or driver problem.",
+                detail=f"Sources (Critical/Error level in Event Viewer): {sources_text}",
             ))
         else:
             report.add(CheckResult(
                 name="Recent system errors",
                 status=Status.WARNING,
-                summary=f"{error_count} critical/error-level event(s) logged in the last "
-                         "24 hours -- may or may not be relevant to the exam session.",
-                detail=f"Top sources: {sources_text}" if sources_text else "",
-                recommendation="Worth a quick look in Event Viewer if the exam software "
-                                "behaves oddly -- these entries may explain why.",
+                summary=f"{error_count} error(s) were logged in the last 24 hours -- not "
+                         "necessarily serious, but worth a quick look since the source "
+                         "isn't a known-harmless one.",
+                detail=f"Sources (Critical/Error level in Event Viewer): {sources_text}" if sources_text else "",
+                recommendation="Open Event Viewer (search 'Event Viewer' in the Start "
+                                "menu) > Windows Logs > System, and check the entries "
+                                "listed above if the exam software behaves oddly.",
             ))
 
     # --- Unexpected reboots/shutdowns (last 7 days) -------------------------------

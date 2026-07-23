@@ -106,6 +106,7 @@ class CategoryReport:
 class FullReport:
     generated_at: datetime = field(default_factory=datetime.now)
     categories: list[CategoryReport] = field(default_factory=list)
+    duration_seconds: float | None = None  # set by main.py once the run finishes
 
     def add(self, category_report: CategoryReport) -> None:
         self.categories.append(category_report)
@@ -116,22 +117,99 @@ class FullReport:
             return Status.SKIPPED
         return max((c.overall_status for c in self.categories), key=lambda s: s.severity)
 
+    @property
+    def action_items(self) -> list[tuple[str, CheckResult]]:
+        """Every FAIL/WARNING check across all categories, paired with its
+        category name. This is what actually needs a human's attention --
+        PASS/INFO/SKIPPED entries are reassurance, not action items."""
+        items = []
+        for cat in self.categories:
+            for check in cat.checks:
+                if check.status in (Status.FAIL, Status.WARNING):
+                    items.append((cat.category, check))
+        # Worst-first, so the most urgent thing an invigilator needs to
+        # deal with is at the top of the list, not buried at the bottom.
+        items.sort(key=lambda pair: pair[1].status.severity, reverse=True)
+        return items
+
+    @property
+    def readiness_verdict(self) -> tuple[str, str]:
+        """A plain-English yes/no answer to the question an invigilator
+        actually has -- 'can I start the exam on this machine?' -- rather
+        than making them infer it from a PASS/WARNING/FAIL tag. Returns
+        (banner_text, detail_text)."""
+        status = self.overall_status
+        fail_count = sum(1 for _, c in self.action_items if c.status == Status.FAIL)
+        warning_count = sum(1 for _, c in self.action_items if c.status == Status.WARNING)
+
+        if status == Status.FAIL:
+            return (
+                "NOT READY -- fix the FAIL item(s) above first",
+                f"{fail_count} thing(s) need fixing before this machine should be used "
+                "for the exam. See 'WHAT TO DO' above for exactly what and where to look "
+                "(each item names the specific setting or screen to check).",
+            )
+        if status == Status.WARNING:
+            return (
+                "READY, WITH CAUTION",
+                f"Nothing is broken, but {warning_count} thing(s) above are worth a "
+                "quick look before relying on this machine -- see 'WHAT TO DO' for "
+                "exactly what and where to check.",
+            )
+        if status == Status.SKIPPED:
+            return (
+                "INCOMPLETE CHECK",
+                "Some checks couldn't run (see SKIPPED entries above) -- re-run the "
+                "tool, ideally as a full check, before treating this as a clean result.",
+            )
+        return (
+            "READY -- no issues found",
+            "Every check passed. This machine looks good to go for the exam.",
+        )
+
     def render(self, color: bool = True) -> str:
         lines = [
             "=" * 60,
             "EXAM-DAY ICT DIAGNOSTIC REPORT",
             f"Generated: {self.generated_at.strftime('%Y-%m-%d %H:%M:%S')}",
-            "=" * 60,
         ]
+        if self.duration_seconds is not None:
+            lines.append(f"Check completed in {self.duration_seconds:.1f}s")
+        lines.append("=" * 60)
+
         for cat in self.categories:
             lines.append(cat.render(color=color))
+
+        # Plain-English wrap-up: what does a non-technical invigilator
+        # actually need to DO, without re-reading every category above?
         lines.append("")
         lines.append("-" * 60)
-        overall_tag = f"[{self.overall_status.value}]"
-        if color and _supports_color():
-            overall_tag = f"{_COLOR[self.overall_status]}{overall_tag}{_RESET}"
-        lines.append(f"OVERALL RESULT: {overall_tag}")
+        lines.append("WHAT TO DO")
         lines.append("-" * 60)
+        items = self.action_items
+        if not items:
+            lines.append("Nothing needs attention -- every check passed.")
+        else:
+            for i, (category, check) in enumerate(items, start=1):
+                tag = f"[{check.status.value}]"
+                if color and _supports_color():
+                    tag = f"{_COLOR[check.status]}{tag}{_RESET}"
+                lines.append(f"{i}. {tag} ({category}) {check.summary}")
+                if check.recommendation:
+                    lines.append(f"   -> {check.recommendation}")
+
+        # The actual yes/no answer an invigilator needs, spelled out --
+        # not left for them to infer from a coloured tag.
+        lines.append("")
+        lines.append("=" * 60)
+        banner, detail = self.readiness_verdict
+        status = self.overall_status
+        banner_display = banner
+        if color and _supports_color():
+            banner_display = f"{_COLOR[status]}{banner}{_RESET}"
+        lines.append(f"VERDICT: {banner_display}")
+        lines.append(detail)
+        lines.append("=" * 60)
         return "\n".join(lines)
 
     def export(self, path: str | None = None) -> str:

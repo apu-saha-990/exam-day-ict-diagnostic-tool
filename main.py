@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 
 from modules.report import FullReport
 from modules import audio as audio_module
@@ -112,6 +113,7 @@ def main():
 
     interactive = not args.no_interactive
 
+    start_time = time.monotonic()
     if args.full:
         report = run_all(args.simulate, interactive)
     elif args.category:
@@ -122,6 +124,8 @@ def main():
 
     if report is None:
         return
+
+    report.duration_seconds = time.monotonic() - start_time
 
     print(report.render(color=True))
 
