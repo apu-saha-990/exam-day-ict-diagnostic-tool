@@ -32,6 +32,7 @@ from modules import audio as audio_module
 from modules import webcam as webcam_module
 from modules import network as network_module
 from modules import display as display_module
+from modules import input_devices as input_module
 from modules.powershell_bridge import is_windows
 
 CATEGORY_MODULES = {
@@ -39,27 +40,30 @@ CATEGORY_MODULES = {
     "webcam": webcam_module,
     "network": network_module,
     "display": display_module,
-    # "input": input_module,
+    "input": input_module,
     # "drivers": drivers_module,
     # "system_logs": system_logs_module,
     # "power": power_module,
 }
 
 
-def run_category(name: str, simulate: bool):
+def run_category(name: str, simulate: bool, interactive: bool = True):
     module = CATEGORY_MODULES[name]
-    return module.run(simulate=simulate)
+    kwargs = {"simulate": simulate}
+    if name == "input":
+        kwargs["interactive"] = interactive
+    return module.run(**kwargs)
 
 
-def run_all(simulate: bool) -> FullReport:
+def run_all(simulate: bool, interactive: bool = True) -> FullReport:
     report = FullReport()
     for name in CATEGORY_MODULES:
         print(f"Running {name} checks...", file=sys.stderr)
-        report.add(run_category(name, simulate))
+        report.add(run_category(name, simulate, interactive))
     return report
 
 
-def interactive_menu(simulate: bool):
+def interactive_menu(simulate: bool, interactive: bool = True):
     while True:
         print("\nExam-Day ICT Diagnostic Tool")
         print("-----------------------------")
@@ -72,7 +76,7 @@ def interactive_menu(simulate: bool):
         if choice == "0":
             return None
         if choice == "1":
-            return run_all(simulate)
+            return run_all(simulate, interactive)
 
         try:
             idx = int(choice) - 2
@@ -82,7 +86,7 @@ def interactive_menu(simulate: bool):
             continue
 
         report = FullReport()
-        report.add(run_category(name, simulate))
+        report.add(run_category(name, simulate, interactive))
         return report
 
 
@@ -92,6 +96,7 @@ def main():
     parser.add_argument("--category", choices=list(CATEGORY_MODULES.keys()), help="Run a single category")
     parser.add_argument("--export", metavar="PATH", nargs="?", const="", help="Export report to a text file")
     parser.add_argument("--simulate", action="store_true", help="Use mock data instead of querying real hardware")
+    parser.add_argument("--no-interactive", action="store_true", help="Skip the live mouse/keyboard confirmation prompt")
     args = parser.parse_args()
 
     if not args.simulate and not is_windows():
@@ -103,13 +108,15 @@ def main():
         )
         sys.exit(1)
 
+    interactive = not args.no_interactive
+
     if args.full:
-        report = run_all(args.simulate)
+        report = run_all(args.simulate, interactive)
     elif args.category:
         report = FullReport()
-        report.add(run_category(args.category, args.simulate))
+        report.add(run_category(args.category, args.simulate, interactive))
     else:
-        report = interactive_menu(args.simulate)
+        report = interactive_menu(args.simulate, interactive)
 
     if report is None:
         return
